@@ -53,33 +53,20 @@ def index():
 
 @app.route('/venues')
 def venues():
-  # TODO: replace with real venues data.
-  #       num_shows should be aggregated based on number of upcoming shows per venue.
-  # venues = Venue.query.group_by(Venue.city, Venue.state).func.array_agg(Venue.name).all()
-  print(Venue.query)
+  venues = db.engine.execute('select ARRAY_AGG(name) as names, ARRAY_AGG(id) as ids, city,state from "Venue" group by city,state;')
+  response = []
+  for row in venues:
+    response.append({
+      "city": row.city,
+      "state": row.state,
+      "venues": [{
+        "id": venueId,
+        "name": venueName,
+        "num_upcoming_shows": len(Show.query.filter(Show.venue_id==venueId, Show.start_time > datetime.now()).all())
+        } for venueId, venueName in zip(row.ids, row.names) ]
+    })
 
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
-  return render_template('pages/venues.html', areas=data);
+  return render_template('pages/venues.html', areas=response);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -148,7 +135,7 @@ def create_venue_submission():
       address = request.form.get('address'),
       phone = request.form.get('phone'),
       facebook_link = request.form.get('facebook_link'),
-      genres = request.form.get('genres')
+      genres = request.form.getlist('genres')
     )
     db.session.add(new_venue)
     db.session.commit()
@@ -346,7 +333,7 @@ def delete_artist(artist_id):
   finally:
     db.session.close()
 
-  # Implement a button to delete a Arist on a Artist Page, have it so that
+  # BONUS CHALLENGE: Implement a button to delete a Arist on a Artist Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
   return redirect(url_for('index'))
 
